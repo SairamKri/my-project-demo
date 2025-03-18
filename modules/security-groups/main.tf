@@ -106,3 +106,85 @@ resource "aws_security_group" "ecs_task_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
+
+# Security Group for Application Load Balancer (ALB)
+resource "aws_security_group" "alb_sg" {
+  name        = "ALB-SG"
+  description = "Alb receives the traffic from the outside and transfers it to ECS services"
+  vpc_id      = "vpc-0bdc81838f7f6a73e" # Replace with your VPC ID
+
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = ["sg-0b12f3d4cc0509e8c"] # Replace with actual SG ID
+  }
+
+  egress {
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = ["sg-0b12f3d4cc0509e8c"] # Replace with actual SG ID
+  }
+
+  tags = {
+    Name = "ALB-SG"
+  }
+}
+
+# Security Group for AWS Lambda
+resource "aws_security_group" "lambda_sg" {
+  name        = "Alb-lambda-trigger-1"
+  description = "Allows the traffic from ALB"
+  vpc_id      = "vpc-0bdc81838f7f6a73e" # Replace with your VPC ID
+
+  ingress {
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = ["sg-0aff353c77d0beb01"] # ALB Security Group
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "Alb-lambda-trigger-1"
+  }
+}
+
+# Security Group for VPC Endpoints
+resource "aws_security_group" "vpc_endpoints_sg" {
+  name        = "VPC-Endpoints-SG"
+  description = "Security Group for VPC Endpoints"
+  vpc_id      = "vpc-0bdc81838f7f6a73e" # Replace with your VPC ID
+
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["10.0.0.0/16"] # Replace with your VPC CIDR
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "VPC-Endpoints-SG"
+  }
+}

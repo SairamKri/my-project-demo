@@ -1,0 +1,115 @@
+const AWS = require('aws-sdk');
+const ecs = new AWS.ECS();
+const mysql = require('mysql2/promise'); // For MySQL RDS
+const pg = require('pg'); // For PostgreSQL RDS
+
+// RDS Database Configuration
+const RDS_DB_TYPE = 'mysql'; // Change to 'postgres' if using PostgreSQL
+const RDS_HOST = 'bitcot-database.ck7yas6iqahb.us-east-1.rds.amazonaws.com';
+const RDS_USER = 'Genesis';
+const RDS_PASSWORD = 'Sairam123';
+const RDS_DATABASE = 'Bitcot';
+
+// ECS Cluster & Task Definition
+const ECS_CLUSTER_NAME = 'bitcot-cluster-dev';
+const ECS_TASK_DEFINITION = 'Bitcot-task-definition:1';
+const ECS_SUBNETS = ['subnet-0ab901c810901f037', 'subnet-0cccb9f1254e01e9b']; // Replace with actual subnet IDs
+const ECS_SECURITY_GROUP = 'sg-0b12f3d4cc0509e8c'; // Replace with actual Security Group ID
+
+exports.handler = async (event) => {
+    console.log("Received event:", JSON.stringify(event, null, 2));
+
+    try {
+        // Determine request type
+        const requestData = JSON.parse(event.body);
+        if (requestData.type === "simple") {
+            return await processSimpleRequest();
+        } else {
+            return await forwardToECS(requestData);
+        }
+    } catch (error) {
+        console.error("Error:", error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ message: "Internal Server Error" }),
+        };
+    }
+};
+
+// Function to Process Simple Requests in RDS
+async function processSimpleRequest() {
+    try {
+        let connection;
+        if (RDS_DB_TYPE === 'mysql') {
+            connection = await mysql.createConnection({
+                host: RDS_HOST,
+                user: RDS_USER,
+                password: RDS_PASSWORD,
+                database: RDS_DATABASE
+            });
+        } else {
+            connection = new pg.Client({
+                host: RDS_HOST,
+                user: RDS_USER,
+                password: RDS_PASSWORD,
+                database: RDS_DATABASE
+            });
+            await connection.connect();
+        }
+
+        const [rows] = await connection.execute("SELECT NOW() as current_time");
+        console.log("Database Response:", rows);
+        await connection.end();
+
+        return {
+            statusCode: 200,
+            body: JSON.stringify({ message: "Simple request processed", time: rows[0].current_time }),
+        };
+    } catch (error) {
+        console.error("Error processing request:", error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ message: "Error processing request" }),
+        };
+    }
+}
+
+// Function to Forward Complex Requests to ECS
+async function forwardToECS(data) {
+    try {
+        const params = {
+            cluster: ECS_CLUSTER_NAME,
+            taskDefinition: ECS_TASK_DEFINITION,
+            launchType: "FARGATE",
+            networkConfiguration: {
+                awsvpcConfiguration: {
+                    subnets: ECS_SUBNETS,
+                    securityGroups: [ECS_SECURITY_GROUP],
+                    assignPublicIp: "ENABLED"
+                }
+            },
+            overrides: {
+                containerOverrides: [{
+                    name: "app-container", // Change based on your container name
+                    environment: [
+                        { name: "REQUEST_DATA", value: JSON.stringify(data) }
+                    ]
+                }]
+            }
+        };
+
+        const response = await ecs.runTask(params).promise();
+        console.log("ECS Task Response:", response);
+
+        return {
+            statusCode: 202,
+            body: JSON.stringify({ message: "Request forwarded to ECS", taskArn: response.tasks[0].taskArn }),
+        };
+    } catch (error) {
+        console.error("Error forwarding request:", error);
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ message: "Error forwarding request to ECS" }),
+        };
+    }
+}
