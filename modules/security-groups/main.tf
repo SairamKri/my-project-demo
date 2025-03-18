@@ -111,34 +111,26 @@ resource "aws_security_group" "ecs_task_sg" {
 resource "aws_security_group" "alb_sg" {
   name        = "ALB-SG"
   description = "Alb receives the traffic from the outside and transfers it to ECS services"
-  vpc_id      = "vpc-0bdc81838f7f6a73e" # Replace with your VPC ID
+  vpc_id      = aws_vpc.main_vpc.id
 
   ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    security_groups = ["sg-098fca3a49910aa2c"]
+  }
+
+  egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  egress {
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    security_groups = ["sg-0b12f3d4cc0509e8c"] # Replace with actual SG ID
-  }
-
-  egress {
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    security_groups = ["sg-0b12f3d4cc0509e8c"] # Replace with actual SG ID
-  }
-
   tags = {
     Name = "ALB-SG"
   }
 }
-
 # Security Group for AWS Lambda
 resource "aws_security_group" "lambda_sg" {
   name        = "Alb-lambda-trigger-1"

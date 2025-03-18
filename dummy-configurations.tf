@@ -1,8 +1,8 @@
 resource "aws_vpc" "main_vpc" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
-  enable_dns_hostnames = false
   instance_tenancy     = "default"
+  enable_dns_hostnames = true
 
   tags = {
     Name = "bitcot-vpc"
@@ -12,7 +12,7 @@ resource "aws_vpc" "main_vpc" {
 resource "aws_subnet" "private_subnet_lambda_az_1" {
   vpc_id                  = aws_vpc.main_vpc.id
   cidr_block              = var.private_subnet_lambda_az_1_cidr # Replace with actual CIDR
-  availability_zone       = "us-east-1a"  # Replace with actual AZ
+  availability_zone       = "us-east-1a"                        # Replace with actual AZ
   map_public_ip_on_launch = false
 
   tags = {
@@ -31,20 +31,21 @@ resource "aws_subnet" "private_subnet_lambda_az_2" {
   }
 }
 
+
 resource "aws_subnet" "private_subnet_ecs_az_1" {
-  vpc_id                  = aws_vpc.main_vpc.id
-  cidr_block              = var.private_subnet_ecs_az_1_cidr
-  availability_zone       = "us-east-1a"
-  map_public_ip_on_launch = false
+  vpc_id            = aws_vpc.main_vpc.id
+  cidr_block        = "10.0.3.0/24"
+  availability_zone = "us-east-1a"
 
   tags = {
     Name = "Private-subnet-ECS-AZ-1"
   }
 }
 
+
 resource "aws_subnet" "private_subnet_ecs_az_2" {
   vpc_id                  = aws_vpc.main_vpc.id
-  cidr_block              = var.private_subnet_ecs_az_2_cidr
+  cidr_block              = "10.0.4.0/24"
   availability_zone       = "us-east-1b"
   map_public_ip_on_launch = false
 
@@ -55,7 +56,7 @@ resource "aws_subnet" "private_subnet_ecs_az_2" {
 
 resource "aws_subnet" "private_subnet_rds_az_1" {
   vpc_id                  = aws_vpc.main_vpc.id
-  cidr_block              = var.private_subnet_rds_az_1_cidr
+  cidr_block              = "10.0.5.0/24"
   availability_zone       = "us-east-1a"
   map_public_ip_on_launch = false
 
@@ -66,7 +67,7 @@ resource "aws_subnet" "private_subnet_rds_az_1" {
 
 resource "aws_subnet" "private_subnet_rds_az_2" {
   vpc_id                  = aws_vpc.main_vpc.id
-  cidr_block              = var.private_subnet_rds_az_2_cidr
+  cidr_block              = "10.0.6.0/24"
   availability_zone       = "us-east-1b"
   map_public_ip_on_launch = false
 
@@ -78,18 +79,18 @@ resource "aws_subnet" "private_subnet_rds_az_2" {
 # Public Subnets Details
 
 resource "aws_subnet" "public_subnet_alb_az_1" {
-  vpc_id                  = aws_vpc.main_vpc.id
-  cidr_block              = var.public_subnet_alb_az_1_cidr
-  availability_zone       = "us-east-1a"
+  vpc_id            = aws_vpc.main_vpc.id
+  cidr_block        = "10.0.7.0/24"
+  availability_zone = "us-east-1a"
   tags = {
     Name = "Public-subnet-ALB-AZ-1"
   }
 }
 
 resource "aws_subnet" "public_subnet_alb_az_2" {
-  vpc_id                  = aws_vpc.main_vpc.id
-  cidr_block              = var.public_subnet_alb_az_2_cidr
-  availability_zone       = "us-east-1b"
+  vpc_id            = aws_vpc.main_vpc.id
+  cidr_block        = "10.0.8.0/24"
+  availability_zone = "us-east-1b"
 
   tags = {
     Name = "Public-subnet-ALB-AZ-2"
@@ -109,7 +110,7 @@ resource "aws_route_table" "private_rt" {
 resource "aws_route_table" "public_rt" {
   vpc_id = aws_vpc.main_vpc.id
 
-   route {
+  route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
   }
@@ -171,23 +172,24 @@ resource "aws_route_table_association" "public_rt_asso_alb_az_2" {
 
 
 resource "aws_vpc_endpoint" "vpce_1" {
-  vpc_id             = "vpc-0bdc81838f7f6a73e"  # Replace with your actual VPC ID
-  service_name       = "com.amazonaws.us-east-1.s3"  # Replace with actual service name
-  vpc_endpoint_type  = "Gateway"
-  route_table_ids    = ["rtb-0dbb6c74b1eca77f0"]  # Replace with your actual Route Table ID
+  vpc_id            = "vpc-0bdc81838f7f6a73e"      # Replace with your actual VPC ID
+  service_name      = "com.amazonaws.us-east-1.s3" # Replace with actual service name
+  vpc_endpoint_type = "Gateway"
+  route_table_ids   = ["rtb-0dbb6c74b1eca77f0"] # Replace with your actual Route Table ID
   tags = {
     Name = "s3-endpoint"
   }
 }
 
 resource "aws_vpc_endpoint" "vpce_2" {
-  vpc_id             = "vpc-0bdc81838f7f6a73e"
-  service_name       = "com.amazonaws.us-east-1.ssm" # Replace if needed
+  vpc_id             = aws_vpc.main_vpc.id
+  service_name       = "com.amazonaws.us-east-1.ecr.api" # Ensure this matches the state
   vpc_endpoint_type  = "Interface"
-  security_group_ids = ["sg-027e5c2cc70542509"] # Replace with actual SG ID
-  subnet_ids         = ["subnet-09869cb19a48ce3e4", "subnet-03fd7e78eac8b473f"] # Replace with actual subnet IDs
+  security_group_ids = ["sg-027e5c2cc70542509"]
+  subnet_ids         = ["subnet-03fd7e78eac8b473f", "subnet-09869cb19a48ce3e4"]
+
   tags = {
-    Name = "ecr-api-endpoint"
+    Name = "VPC-Endpoint-SSM"
   }
 }
 
@@ -250,16 +252,16 @@ resource "aws_security_group" "my_rds_sg" {
   vpc_id      = "vpc-0bdc81838f7f6a73e"
 
   ingress {
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
+    from_port       = 3306
+    to_port         = 3306
+    protocol        = "tcp"
     security_groups = ["sg-098fca3a49910aa2c", "sg-0b12f3d4cc0509e8c", "sg-0b221cf6a66d2cd92", "sg-0d0884a6fee7f22aa"]
   }
 
   ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
     security_groups = ["sg-0d0884a6fee7f22aa"]
   }
 
@@ -326,27 +328,20 @@ resource "aws_security_group" "ecs_task_sg" {
 resource "aws_security_group" "alb_sg" {
   name        = "ALB-SG"
   description = "Alb receives the traffic from the outside and transfers it to ECS services"
-  vpc_id      = "vpc-0bdc81838f7f6a73e" # Replace with your VPC ID
+  vpc_id      = aws_vpc.main_vpc.id
 
   ingress {
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = ["sg-098fca3a49910aa2c"]
+  }
+
+  egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port       = 80
-    to_port         = 80
-    protocol        = "tcp"
-    security_groups = ["sg-0b12f3d4cc0509e8c"] # Replace with actual SG ID
-  }
-
-  egress {
-    from_port       = 443
-    to_port         = 443
-    protocol        = "tcp"
-    security_groups = ["sg-0b12f3d4cc0509e8c"] # Replace with actual SG ID
   }
 
   tags = {
@@ -427,12 +422,12 @@ resource "aws_s3_bucket_public_access_block" "bitcot_bucket_access" {
 resource "aws_s3_bucket_policy" "bitcot_bucket_policy" {
   bucket = aws_s3_bucket.bitcot_bucket.id
   policy = jsonencode({
-    Version   = "2012-10-17"
-    Id        = "PolicyForCloudFrontPrivateContent"
+    Version = "2012-10-17"
+    Id      = "PolicyForCloudFrontPrivateContent"
     Statement = [
       {
-        Sid       = "AllowCloudFrontServicePrincipal"
-        Effect    = "Allow"
+        Sid    = "AllowCloudFrontServicePrincipal"
+        Effect = "Allow"
         Principal = {
           Service = "cloudfront.amazonaws.com"
         }
@@ -508,13 +503,13 @@ resource "aws_route53_record" "txt_record" {
 resource "aws_db_instance" "my_rds" {
   identifier              = "bitcot-database"
   allocated_storage       = 30
-  engine                 = "mysql"
-  engine_version         = "8.0.40"
-  instance_class         = "db.t4g.micro"
-  db_subnet_group_name   = "rds-ec2-db-subnet-group-2"
-  vpc_security_group_ids = ["sg-0014e3c352eb142ec", "sg-0aff353c77d0beb01"]
-  storage_encrypted      = true
-  skip_final_snapshot    = true
+  engine                  = "mysql"
+  engine_version          = "8.0.40"
+  instance_class          = "db.t4g.micro"
+  db_subnet_group_name    = "rds-ec2-db-subnet-group-2"
+  vpc_security_group_ids  = ["sg-0014e3c352eb142ec", "sg-0aff353c77d0beb01"]
+  storage_encrypted       = true
+  skip_final_snapshot     = true
   backup_retention_period = 1
   publicly_accessible     = false
   tags = {
@@ -525,10 +520,10 @@ resource "aws_db_instance" "my_rds" {
 # Lambda Function
 resource "aws_lambda_function" "alb_lambda" {
   function_name    = "ProcessRequestsLambda"
-  role            = "arn:aws:iam::908027399760:role/service-role/Alb-lambda-1-role-kov2837i"
-  handler         = "index.handler"
-  runtime         = "nodejs20.x"
-  filename        = "lambda_function.zip"
+  role             = "arn:aws:iam::908027399760:role/service-role/Alb-lambda-1-role-kov2837i"
+  handler          = "index.handler"
+  runtime          = "nodejs20.x"
+  filename         = "lambda_function.zip"
   source_code_hash = filebase64sha256("lambda_function.zip")
 
   vpc_config {
@@ -583,7 +578,7 @@ resource "aws_iam_role" "lambda_rds_role" {
 
 data "aws_iam_policy_document" "lambda_assume_policy" {
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["sts:AssumeRole"]
     principals {
       type        = "Service"
@@ -605,7 +600,7 @@ resource "aws_iam_role" "rds_monitoring_role" {
 
 data "aws_iam_policy_document" "rds_assume_policy" {
   statement {
-    effect = "Allow"
+    effect  = "Allow"
     actions = ["sts:AssumeRole"]
     principals {
       type        = "Service"
@@ -634,11 +629,11 @@ resource "aws_ecs_task_definition" "my_task" {
 
   container_definitions = jsonencode([
     {
-      name      = "my-container"
-      image     = "908027399760.dkr.ecr.us-east-1.amazonaws.com/my-repo:latest"
-      cpu       = 256
-      memory    = 512
-      essential = true
+      name        = "my-container"
+      image       = "908027399760.dkr.ecr.us-east-1.amazonaws.com/my-repo:latest"
+      cpu         = 256
+      memory      = 512
+      essential   = true
       networkMode = "awsvpc"
 
       portMappings = [
@@ -669,8 +664,8 @@ resource "aws_ecs_service" "my_service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = ["subnet-12345678", "subnet-87654321"]
-    security_groups = [aws_security_group.ecs_service_sg.id]
+    subnets          = ["subnet-12345678", "subnet-87654321"]
+    security_groups  = [aws_security_group.ecs_service_sg.id]
     assign_public_ip = false
   }
 
@@ -777,12 +772,12 @@ resource "aws_lb" "my_alb" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = ["sg-0aff353c77d0beb01"]
-  subnets           = ["subnet-009fe17d110260e07", "subnet-0209f3d4b2ae2b8a8"]
+  subnets            = ["subnet-009fe17d110260e07", "subnet-0209f3d4b2ae2b8a8"]
 
   enable_deletion_protection = false
 
   enable_cross_zone_load_balancing = true
-  enable_http2                    = true
+  enable_http2                     = true
 
   tags = {
     Name = "Bitcot-Alb"
@@ -797,7 +792,7 @@ resource "aws_lb_listener" "my_listener" {
   certificate_arn   = "arn:aws:acm:us-east-1:908027399760:certificate/f804d829-649b-41c8-a080-60eba2db1505"
 
   default_action {
-    type = "forward"
+    type             = "forward"
     target_group_arn = aws_lb_target_group.tg_simple_requests.arn
   }
 }
@@ -813,7 +808,7 @@ resource "aws_lb_listener_rule" "complex_requests_rule" {
   }
 
   action {
-    type = "forward"
+    type             = "forward"
     target_group_arn = aws_lb_target_group.tg_complex_requests.arn
   }
 }
@@ -829,7 +824,7 @@ resource "aws_lb_listener_rule" "simple_requests_rule" {
   }
 
   action {
-    type = "forward"
+    type             = "forward"
     target_group_arn = aws_lb_target_group.tg_simple_requests.arn
   }
 }
@@ -857,7 +852,7 @@ resource "aws_lb_target_group" "tg_complex_requests" {
 }
 
 resource "aws_lb_target_group" "tg_simple_requests" {
-  name     = "lambda-m249lqp26e2me81vf9pi"
+  name        = "lambda-m249lqp26e2me81vf9pi"
   target_type = "lambda"
 }
 
@@ -866,7 +861,7 @@ resource "aws_acm_certificate" "my_cert" {
   validation_method         = "DNS"
   key_algorithm             = "RSA_2048"
   subject_alternative_names = ["alivenews.online"]
-  tags = {}
+  tags                      = {}
 
   options {
     certificate_transparency_logging_preference = "ENABLED"

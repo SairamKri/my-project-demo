@@ -9,15 +9,17 @@ resource "aws_vpc_endpoint" "vpce_1" {
 }
 
 resource "aws_vpc_endpoint" "vpce_2" {
-  vpc_id             = "vpc-0bdc81838f7f6a73e"
-  service_name       = "com.amazonaws.us-east-1.ssm" # Replace if needed
-  vpc_endpoint_type  = "Interface"
-  security_group_ids = ["sg-027e5c2cc70542509"] # Replace with actual SG ID
-  subnet_ids         = ["subnet-09869cb19a48ce3e4", "subnet-03fd7e78eac8b473f"] # Replace with actual subnet IDs
+  vpc_id = aws_vpc.main_vpc.id
+  service_name = "com.amazonaws.us-east-1.ecr.api" # Ensure this matches the state
+  vpc_endpoint_type = "Interface"
+  security_group_ids = ["sg-027e5c2cc70542509"]
+  subnet_ids = ["subnet-03fd7e78eac8b473f", "subnet-09869cb19a48ce3e4"]
+
   tags = {
-    Name = "ecr-api-endpoint"
+    Name = "VPC-Endpoint-SSM"
   }
 }
+
 
 resource "aws_vpc_endpoint" "vpce_3" {
   vpc_id             = "vpc-0bdc81838f7f6a73e"
